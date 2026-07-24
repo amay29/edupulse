@@ -1,0 +1,139 @@
+// Prisma schema file for EduPulse
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                String         @id @default(cuid())
+  username          String         @unique
+  email             String         @unique
+  password          String
+  name              String
+  nim               String?
+  profilePicture    String?
+  isVerified        Boolean        @default(false)
+  verificationToken String?
+  resetOtp          String?
+  resetOtpExpiresAt DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  userClasses       UserClass[]
+  createdTasks      Task[]
+  comments          Comment[]
+  notifications     Notification[]
+  documents         Document[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  classes     Class[]
+}
+
+model Class {
+  id           String      @id @default(cuid())
+  courseId     String
+  course       Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name         String
+  year         String
+  semester     String      // "ODD" | "EVEN"
+  classCode    String      @unique
+  lecturerName String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  userClasses  UserClass[]
+  tasks        Task[]
+}
+
+model UserClass {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  role      String   @default("MEMBER") // "ADMIN" | "MEMBER"
+  joinedAt  DateTime @default(now())
+
+  comments  Comment[]
+
+  @@unique([userId, classId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  classId     String
+  class       Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  deadline    DateTime
+  status      String     @default("OPEN") // "OPEN" | "CLOSED"
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  subTasks    SubTask[]
+  documents   Document[]
+  comments    Comment[]
+}
+
+model SubTask {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  taskId       String?
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  fileName     String
+  fileUrl      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Comment {
+  id          String     @id @default(cuid())
+  taskId      String
+  task        Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userClassId String?
+  userClass   UserClass? @relation(fields: [userClassId], references: [id], onDelete: SetNull)
+  parentId    String?
+  parent      Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]  @relation("CommentReplies")
+  content     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("GENERAL") // "TASK_NEW" | "COMMENT_REPLY" | "DEADLINE_ALERT" | "GENERAL"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
