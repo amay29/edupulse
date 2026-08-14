@@ -1,5 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+// Zod schema for request validation
+const CreateCommentSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  content: z.string().min(1, "Comment content is required").trim(),
+  parentId: z.string().nullable().optional(),
+});
+
+// Reusable user select for Prisma queries
+const UserSelect = {
+  id: true,
+  name: true,
+  username: true,
+  nim: true,
+  profilePicture: true,
+};
+
+// Reusable userClass select for Prisma queries
+const UserClassSelect = {
+  role: true,
+};
 
 // GET /api/tasks/[taskId]/comments
 export async function GET(
@@ -15,36 +37,12 @@ export async function GET(
         parentId: null, // Only fetch root comments; replies are nested inside
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            nim: true,
-            profilePicture: true,
-          },
-        },
-        userClass: {
-          select: {
-            role: true,
-          },
-        },
+        user: { select: UserSelect },
+        userClass: { select: UserClassSelect },
         replies: {
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                nim: true,
-                profilePicture: true,
-              },
-            },
-            userClass: {
-              select: {
-                role: true,
-              },
-            },
+            user: { select: UserSelect },
+            userClass: { select: UserClassSelect },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -53,9 +51,10 @@ export async function GET(
     });
 
     return NextResponse.json({ success: true, data: comments });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error("GET /api/tasks/[taskId]/comments error:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to fetch comments" },
+      { success: false, error: "Failed to fetch comments. Please try again later." },
       { status: 500 }
     );
   }
@@ -69,14 +68,17 @@ export async function POST(
   try {
     const { taskId } = await params;
     const body = await request.json();
-    const { userId, content, parentId } = body;
-
-    if (!userId || !content || content.trim() === "") {
+    
+    // Validate request body using Zod
+    const result = CreateCommentSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: "UserId and content are required" },
+        { success: false, error: result.error.issues[0].message },
         { status: 400 }
       );
     }
+
+    const { userId, content, parentId } = result.data;
 
     // Find task & user's class membership for role lookup
     const task = await prisma.task.findUnique({
@@ -105,31 +107,20 @@ export async function POST(
         taskId,
         userId,
         userClassId: userClass?.id ?? null,
-        content: content.trim(),
+        content,
         parentId: parentId || null,
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            nim: true,
-            profilePicture: true,
-          },
-        },
-        userClass: {
-          select: {
-            role: true,
-          },
-        },
+        user: { select: UserSelect },
+        userClass: { select: UserClassSelect },
       },
     });
 
     return NextResponse.json({ success: true, data: newComment }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error("POST /api/tasks/[taskId]/comments error:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to create comment" },
+      { success: false, error: "Failed to create comment. Please try again later." },
       { status: 500 }
     );
   }

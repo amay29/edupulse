@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/context/UserContext";
 import { Navbar } from "@/components/Navbar";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
           <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 bg-slate-950/60">
             <p>© 2026 EduPulse Platform. Created by Independent Portfolio.</p>
           </footer>
+          <Toaster position="top-right" theme="dark" richColors />
         </UserProvider>
       </body>
     </html>
